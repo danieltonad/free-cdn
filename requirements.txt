@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 starlette
 jinja2
+python-multipart
