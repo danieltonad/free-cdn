@@ -27,12 +27,9 @@ async def index(request: Request):
 
 @app.get("/image/{img}")
 async def get_image(img: str):
-    save_dir = Path(UPLOAD_DIR)
-    image_path = save_dir / img
-    image_path.mkdir(parents=True, exist_ok=True)
-
+    dirname = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__))))
     # Return the image as a FileResponse
-    return FileResponse(image_path, media_type="image/jpg")
+    return FileResponse(f"{dirname}\{UPLOAD_DIR}\{img}")
 
 @app.post("/upload/")
 async def upload_image(request :Request,file: UploadFile = File(...)):
