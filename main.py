@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,11 +19,18 @@ app = FastAPI(
     # docs_url=None, 
     # redoc_url=None
     )
+origins = [
+    "https://conju.me",
+    "http://localhost",
+    "http://127.0.0.1:5500",
+    "http://localhost:8000",
+    "http://127.0.0.1:8080",
+]
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=[origins],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all HTTP headers
@@ -56,7 +63,7 @@ class MaxBodySizeValidator:
 file_chunks = {}
 
 @app.post("/upload_chunk/{file_id}")
-async def upload_chunk(file_id: str, chunk: UploadFile = UploadFile(...)):
+async def upload_chunk(file_id: str, chunk: UploadFile = File(...)):
     try:
         # Read the content of the received chunk
         chunk_content = await chunk.read()
@@ -82,31 +89,18 @@ def write_stream_to_temp(chunk, temp_path):
             temp_file.write(chunk)
             temp_file.close()
     else:
-        Path('/tmp').mkdir(parents=True, exist_ok=True)
+        # Path('/tmp').mkdir(parents=True, exist_ok=True)
         os.makedirs('./tmp/', exist_ok=True)
         with open(file_path, 'wb') as temp_file:
             temp_file.write(chunk)
             temp_file.close()
         
 
-@app.post("/combine_chunks/{file_id}")
+@app.get("/fetch_file/{file_id}")
 async def combine_chunks(file_id: str):
     try:
-        # Check if all chunks for the file_id are received
-        if file_id not in file_chunks or not file_chunks[file_id]:
-            raise HTTPException(status_code=400, detail="No chunks found for the specified file_id")
-
-        # Combine all chunks into the complete file
-        complete_file_content = b"".join(file_chunks[file_id])
-
-        # Reset the chunks for the file_id
-        del file_chunks[file_id]
-
-        # Process the complete file content
-        # Replace this with your own logic
-        print(f"Received complete file with size: {len(complete_file_content)} bytes")
-
-        return JSONResponse(content={"message": f"File received and processed successfully {len(complete_file_content)} bytes"}, status_code=200)
+        video_path = f"./tmp/{file_id}"  # Replace with the actual path to your video file
+        return FileResponse(video_path, media_type="video/mp4")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
