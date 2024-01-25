@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Form
+from fastapi.responses import JSONResponse
 from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,6 +10,7 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, ValueTarget
 from streaming_form_data.validators import MaxSizeValidator
 from starlette.requests import ClientDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 # disable the docs
 # disable the redoc
@@ -17,6 +19,15 @@ app = FastAPI(
     # docs_url=None, 
     # redoc_url=None
     )
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all HTTP headers
+)
 
 templates = Jinja2Templates(directory="templates")
 # app.config.MAX_UPLOAD_SIZE = 
@@ -41,32 +52,64 @@ class MaxBodySizeValidator:
         if self.body_len > self.max_size:
             raise MaxBodySizeException(body_len=self.body_len)
         
-@app.post("/upload")
-async def upload_file(request: Request):
+# Dictionary to store chunks temporarily
+file_chunks = {}
+
+@app.post("/upload_chunk/{file_id}")
+async def upload_chunk(file_id: str, chunk: UploadFile = UploadFile(...)):
     try:
-        # Set chunk size limit to 5MB
-        chunk_size_limit = 5 * 1024 * 1024
+        # Read the content of the received chunk
+        chunk_content = await chunk.read()
 
-        # Initialize total size counter
-        total_size = 0
+        # Append the chunk content to the file_chunks dictionary
+        # if file_id not in file_chunks:
+        #     file_chunks[file_id] = []
+        # file_chunks[file_id].append(chunk_content)
+        
+        write_stream_to_temp(chunk=chunk_content, temp_path=f'{file_id}.mp4')
 
-        # Process request body in chunks
-        # async for chunk in request.stream().iter_any(chunk_size_limit):
-        #     # Perform processing on each chunk
-        #     # Replace this with your own logic
-        #     print(f"Processing chunk with size: {len(chunk)} bytes")
+        return JSONResponse(content={"message": "Chunk received successfully"}, status_code=200)
 
-        #     # Update total size counter
-        #     total_size += len(chunk)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
-        #     # Check if total size exceeds limit
-        #     if total_size > chunk_size_limit:
-        #         raise HTTPException(status_code=400, detail="File size exceeds chunk limit")
+def write_stream_to_temp(chunk, temp_path):
+    file_path = Path(f'./tmp/{temp_path}')
+    if file_path.exists():
+        with open(file_path, 'ab') as temp_file:
+            print("Opened file directory:", os.path.dirname(os.path.abspath(temp_file.name)))
+            temp_file.write(chunk)
+            temp_file.close()
+    else:
+        Path('/tmp').mkdir(parents=True, exist_ok=True)
+        os.makedirs('./tmp/', exist_ok=True)
+        with open(file_path, 'wb') as temp_file:
+            temp_file.write(chunk)
+            temp_file.close()
+        
+
+@app.post("/combine_chunks/{file_id}")
+async def combine_chunks(file_id: str):
+    try:
+        # Check if all chunks for the file_id are received
+        if file_id not in file_chunks or not file_chunks[file_id]:
+            raise HTTPException(status_code=400, detail="No chunks found for the specified file_id")
+
+        # Combine all chunks into the complete file
+        complete_file_content = b"".join(file_chunks[file_id])
+
+        # Reset the chunks for the file_id
+        del file_chunks[file_id]
+
+        # Process the complete file content
+        # Replace this with your own logic
+        print(f"Received complete file with size: {len(complete_file_content)} bytes")
+
+        return JSONResponse(content={"message": f"File received and processed successfully {len(complete_file_content)} bytes"}, status_code=200)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-    return {"message": "File upload successful"}
 
  
 @app.post('/chuxk-upload')
