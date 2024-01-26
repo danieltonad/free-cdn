@@ -30,7 +30,7 @@ origins = [
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origins],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all HTTP headers
@@ -154,6 +154,10 @@ def save_uploaded_file(file: UploadFile, save_path: Path):
 @app.get('/')
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get('/test')
+async def test_temp(request: Request):
+    return templates.TemplateResponse("test.html", {"request": request})
 
 @app.get("/image/{img}")
 async def get_image(img: str):
