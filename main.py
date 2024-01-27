@@ -114,7 +114,6 @@ def write_stream_to_temp(chunk, temp_path):
             temp_file.write(chunk)
             temp_file.close()
     else:
-        # Path('/tmp').mkdir(parents=True, exist_ok=True)
         os.makedirs('/tmp/', exist_ok=True)
         with open(file_path, 'wb') as temp_file:
             temp_file.write(chunk)

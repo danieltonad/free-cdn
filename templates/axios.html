@@ -22,7 +22,9 @@ async function uploadFile() {
     return;
   }
 
-  const chunkSize = 2 * 1024 * 1024; // 4MB chunks
+  const AUTH_HEADER = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiMHhqeGUzM3AxbnRlIiwidXNlcm5hbWUiOiJzdHJpbmciLCJlbWFpbCI6InNvbGFkYW4yMDAwQGdtYWlsLmNvbSIsImRpc3BsYXlfbmFtZSI6IlRvcCBCb3lcdWQ4M2RcdWRlNDIiLCJiaW8iOiJOb3RoaW5nIGhlcmUiLCJpbWFnZSI6Imh0dHBzOi8vY29uanUtbWUtc2xpZGVycy5zMy5hbWF6b25hd3MuY29tL3Byb2ZpbGVfaW1hZ2UvYW05anRDZlBvNFZUWHVPcWZHUnk4aGtDcDhobnhRYlduSDlXRVNJN09uREc1OGswOG41aWxhS2J2YWUyUVVTZzJoWVZlNUFlcUloOGtpOXFUTmtJY3FyRE5TRXk5ZGRjMGduNC5wbmciLCJ2ZXJpZmllZCI6dHJ1ZSwic2xpZGVyIjp0cnVlLCJ0aXBfbWUiOnRydWUsInNsaWRlcnMiOlt7ImlkIjoiRzVKSldaS0wiLCJzbGlkZXJfdHlwZSI6InlvdXR1YmUiLCJ2aWRlb191cmwiOm51bGwsIm1lZGlhX3VybCI6Imh0dHBzOi8veW91dHViZS5jb20vc2hvcnRzLzE3NXp4N0tCWFE4P3NpPVRXa1pPaXZzZkRJaU9wTXoifSx7ImlkIjoiWkdIWEVLQlAiLCJzbGlkZXJfdHlwZSI6InlvdXR1YmUiLCJ2aWRlb191cmwiOm51bGwsIm1lZGlhX3VybCI6Imh0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9VGhiMld4RjFfU1EifSx7ImlkIjoiRlZLQ0pDRzdISUtOIiwic2xpZGVyX3R5cGUiOiJ5b3V0dWJlIiwidmlkZW9fdXJsIjpudWxsLCJtZWRpYV91cmwiOiJodHRwczovL3d3dy55b3V0dWJlLmNvbS93YXRjaD92PURBVWFqY1FuZnFBIn0seyJpZCI6IkVYTTRRQTBTVVRNNiIsInNsaWRlcl90eXBlIjoieW91dHViZSIsInZpZGVvX3VybCI6bnVsbCwibWVkaWFfdXJsIjoiaHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g_dj1WU3plRVpydWhHbyJ9LHsiaWQiOiIzRERGTURHWE1ORkVRRUNNR0JFUSIsInNsaWRlcl90eXBlIjoidGlrdG9rIiwidmlkZW9fdXJsIjoiaHR0cHM6Ly9jb25qdS1tZS1zbGlkZXJzLnMzLmFtYXpvbmF3cy5jb20vc2xpZGVycy9XdUNnYXlsRGxhVzJudHl2b0hKSnNidzRFV0RUYVU3TFpFcWlvWG5WRWdYcUhFNHFJTnczVXJ1WGZDR01vVmVYcHIwR1B6Nm95U3RuMGNoSlFVYloyY3JRQ1lmSmg4eW03UTV6Lm1wNCIsIm1lZGlhX3VybCI6Imh0dHBzOi8vd3d3LnRpa3Rvay5jb20vQG5hc3R5YmxhcS92aWRlby83MzExMjU0MjY5MDkxMzg0NTgxP2lzX2Zyb21fd2ViYXBwPTEmc2VuZGVyX2RldmljZT1wYyJ9XSwidGhlbWUiOiJvcmFuZ2UiLCJwbGFuIjoic3RhbmRhcmQiLCJiYWNrZ3JvdW5kX2ltYWdlIjpudWxsLCJzb2NpYWxfaWNvbnMiOnsiZmFjZWJvb2siOiJodHRwczovL2ZhY2Vib29rLmNvbS9zb2xhcmluIn19LCJleHBpcnkiOjE3MDYzOTc3NDMuOTcxNDM4Mn0.P9EhUY5Xg8gbdQqUHjBlrSp6YATBuZWEJtjM0xNj3Es'};
+
+  const chunkSize = 1 * 1024 * 1024; // 4MB chunks
   const chunks = Math.ceil(file.size / chunkSize);
   // const endpoint = 'https://fileupload-1-q0309417.deta.app/upload_chunk/test_123'; // Replace with your actual API endpoint
   
@@ -35,7 +37,7 @@ async function uploadFile() {
 
   for (let i = 0; i < chunks; i++) {
     const endpoint = `https://fileupload-1-q0309417.deta.app/upload_chunk/${file_name}`; // Replace with your actual API endpoint
-    //const endpoint = `http://localhost:8000/upload_chunk/${file_name}`; // Replace with your actual API endpoint
+    // const endpoint = `http://localhost:8000/chunk/${file_name}`; // Replace with your actual API endpoint
     const start = i * chunkSize;
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
