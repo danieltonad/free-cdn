@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Form
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +11,7 @@ from streaming_form_data.targets import FileTarget, ValueTarget
 from streaming_form_data.validators import MaxSizeValidator
 from starlette.requests import ClientDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+import boto3
 
 # disable the docs
 # disable the redoc
@@ -43,6 +44,9 @@ UPLOAD_DIR = "uploads"
 MAX_FILE_SIZE = 1024 * 1024 * 1024 * 4  # = 4GB
 MAX_REQUEST_BODY_SIZE = MAX_FILE_SIZE + 1024
 CHUNK_SIZE = 1024 # 4 MB
+s3 = boto3.client("s3", aws_access_key_id="", aws_secret_access_key="")
+BUCKET = "conju-me-sliders"
+FOLDER = "tmp/"
 
 # chuck
 class MaxBodySizeException(Exception):
@@ -58,21 +62,17 @@ class MaxBodySizeValidator:
         self.body_len += len(chunk)
         if self.body_len > self.max_size:
             raise MaxBodySizeException(body_len=self.body_len)
-        
-# Dictionary to store chunks temporarily
-file_chunks = {}
+
+@app.get("/intialize_upload/{file_name}")
+async def initialize_upload(file_name: str):
+    return initiate_multipart_upload(file_name)
 
 @app.post("/upload_chunk/{file_id}")
 async def upload_chunk(file_id: str, chunk: UploadFile = File(...)):
     try:
         # Read the content of the received chunk
         chunk_content = await chunk.read()
-
-        # Append the chunk content to the file_chunks dictionary
-        # if file_id not in file_chunks:
-        #     file_chunks[file_id] = []
-        # file_chunks[file_id].append(chunk_content)
-        
+        # await write_s3_chunck(chunk=chunk_content, file_name=file_id+'.mp4', part=part, upload_id=upload_id)
         write_stream_to_temp(chunk=chunk_content, temp_path=f'{file_id}.mp4')
 
         return JSONResponse(content={"message": "Chunk received successfully"}, status_code=200)
@@ -80,9 +80,34 @@ async def upload_chunk(file_id: str, chunk: UploadFile = File(...)):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get('/s3_upload/{file}')
+async def s3_upload_file(file: str):
+    file_path = Path('/tmp/' + file)
+    await upload_file_temp_to_s3(file=file_path, file_name=file)
+    return "Done init"
+
+async def upload_file_temp_to_s3(file: Path, file_name: str):
+    key = FOLDER + file_name
+    response = s3.upload_file(
+        file,
+        Bucket=BUCKET,
+        Key=key
+    )
+    print(response)
+    return response
+  
+def initiate_multipart_upload(file_name):
+    key = FOLDER + file_name
+    response = s3.create_multipart_upload(
+        Bucket=BUCKET,
+        Key=key
+    )
+    return response['UploadId']
+
 
 def write_stream_to_temp(chunk, temp_path):
-    file_path = Path(f'./tmp/{temp_path}')
+    file_path = Path(f'/tmp/{temp_path}')
     if file_path.exists():
         with open(file_path, 'ab') as temp_file:
             print("Opened file directory:", os.path.dirname(os.path.abspath(temp_file.name)))
@@ -90,7 +115,7 @@ def write_stream_to_temp(chunk, temp_path):
             temp_file.close()
     else:
         # Path('/tmp').mkdir(parents=True, exist_ok=True)
-        os.makedirs('./tmp/', exist_ok=True)
+        os.makedirs('/tmp/', exist_ok=True)
         with open(file_path, 'wb') as temp_file:
             temp_file.write(chunk)
             temp_file.close()
@@ -98,52 +123,31 @@ def write_stream_to_temp(chunk, temp_path):
 
 @app.get("/fetch_file/{file_id}")
 async def combine_chunks(file_id: str):
+    video_path = f"/tmp/{file_id}"  # Replace with the actual path to your video file
+    def generate():
+        buffer_size = 1 * 1024 * 1024  # 4MB buffer size
+        with open(video_path, "rb") as video_file:
+            while True:
+                chunk = video_file.read(buffer_size)
+                if not chunk:
+                    video_file.close()
+                    break
+                yield chunk
     try:
-        video_path = f"./tmp/{file_id}"  # Replace with the actual path to your video file
-        return FileResponse(video_path, media_type="video/mp4")
+        return StreamingResponse(generate(), media_type="video/mp4")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
- 
-@app.post('/chuxk-upload')
-async def upload(request: Request):
-    body_validator = MaxBodySizeValidator(MAX_REQUEST_BODY_SIZE)
-    filename = request.headers.get('Filename')
-    
-    if not filename:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
-            detail='Filename header is missing')
+@app.get("/delete_file/{file_id}")
+async def delete_chunks(file_id: str):
     try:
-        filepath = os.path.join('./', os.path.basename(filename)) 
-        file_ = FileTarget(filepath, validator=MaxSizeValidator(MAX_FILE_SIZE))
-        data = ValueTarget()
-        parser = StreamingFormDataParser(headers=request.headers)
-        parser.register('file', file_)
-        parser.register('data', data)
-        
-        async for chunk in request.stream():
-            body_validator(chunk)
-            parser.data_received(chunk)
-    except ClientDisconnect:
-        print("Client Disconnected")
-    except MaxBodySizeException as e:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, 
-           detail=f'Maximum request body size limit ({MAX_REQUEST_BODY_SIZE} bytes) exceeded ({e.body_len} bytes read)')
-    except streaming_form_data.validators.ValidationError:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, 
-            detail=f'Maximum file size limit ({MAX_FILE_SIZE} bytes) exceeded') 
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail='There was an error uploading the file') 
-   
-    if not file_.multipart_filename:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='File is missing')
+        video_path = f"/tmp/{file_id}"  # Replace with the actual path to your video file
+        return os.remove(video_path)
 
-    print(data.value.decode())
-    print(file_.multipart_filename)
-        
-    return {"message": f"Successfuly uploaded {filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 def save_uploaded_file(file: UploadFile, save_path: Path):
@@ -157,7 +161,7 @@ async def index(request: Request):
 
 @app.get('/test')
 async def test_temp(request: Request):
-    return templates.TemplateResponse("test.html", {"request": request})
+    return templates.TemplateResponse("axios.html", {"request": request})
 
 @app.get("/image/{img}")
 async def get_image(img: str):

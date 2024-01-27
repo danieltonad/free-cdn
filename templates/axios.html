@@ -22,14 +22,24 @@ async function uploadFile() {
     return;
   }
 
-  const chunkSize = 4 * 1024 * 1024; // 4MB chunks
+  const chunkSize = 2 * 1024 * 1024; // 4MB chunks
   const chunks = Math.ceil(file.size / chunkSize);
-  const endpoint = 'https://fileupload-1-q0309417.deta.app/upload_chunk/test_123'; // Replace with your actual API endpoint
+  // const endpoint = 'https://fileupload-1-q0309417.deta.app/upload_chunk/test_123'; // Replace with your actual API endpoint
+  
+  file_name = 'test_1234'
+
+  //_init_ = await axios.get(`http://localhost:8000/intialize_upload/${file_name}`)
+
+  // upload_id = _init_.data
+
 
   for (let i = 0; i < chunks; i++) {
+    const endpoint = `https://fileupload-1-q0309417.deta.app/upload_chunk/${file_name}`; // Replace with your actual API endpoint
+    //const endpoint = `http://localhost:8000/upload_chunk/${file_name}`; // Replace with your actual API endpoint
     const start = i * chunkSize;
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
+
 
     const formData = new FormData();
     formData.append('chunk', chunk);
